@@ -1,0 +1,106 @@
+stages:
+  - turn-on
+  - testing
+  - qa
+  - staging
+  - turn-off
+variables:
+  CREATE_QA_MONGO_USER: "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$QA_DB_NAME').createUser({user: '$MONGO_INITDB_ROOT_USERNAME',pwd: '$MONGO_INITDB_ROOT_PASSWORD',roles: [{role: 'readWrite',db: '$QA_DB_NAME'}]})\""
+  CREATE_QA_SUPER_USER: "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB(\'$QA_DB_NAME\').user.insert({_id: ObjectId('5d1a604d383edf6230b13771'), name: '$SUPER_ADMIN_NAME', lastName: '$SUPER_ADMIN_LASTNAME', password: '$SUPER_ADMIN_PASSWORD', email: '$SUPER_ADMIN_EMAIL', documentType: 'v', documentNumber: '0', phone: '0', userType: 'ADMINISTRADOR', status: 'ACTIVO', urlImage: '${URL_SERVER}/images/users/avatar_default.png', serviceZones: [], qualification: 0, daysAttention: [], specialties: [], role: ObjectId('5d1a5dae383edf6230b13770')})\""
+  CREATE_STAGING_MONGO_USER: "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$STAGING_DB_NAME').createUser({user: '$MONGO_INITDB_ROOT_USERNAME',pwd: '$MONGO_INITDB_ROOT_PASSWORD',roles: [{role: 'readWrite',db: '$STAGING_DB_NAME'}]})\""
+  CREATE_STAGING_SUPER_USER: "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB(\'$STAGING_DB_NAME\').user.insert({_id: ObjectId('5d1a604d383edf6230b13771'), name: '$SUPER_ADMIN_NAME', lastName: '$SUPER_ADMIN_LASTNAME', password: '$SUPER_ADMIN_PASSWORD', email: '$SUPER_ADMIN_EMAIL', documentType: 'v', documentNumber: '0', phone: '0', userType: 'ADMINISTRADOR', status: 'ACTIVO', urlImage: '${URL_SERVER}/images/users/avatar_default.png', serviceZones: [], qualification: 0, daysAttention: [], specialties: [], role: ObjectId('5d1a5dae383edf6230b13770')})\""
+  CREATE_TESTING_MONGO_USER: "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$TESTING_DB_NAME').createUser({user: '$MONGO_INITDB_ROOT_USERNAME',pwd: '$MONGO_INITDB_ROOT_PASSWORD',roles: [{role: 'dbOwner',db: '$TESTING_DB_NAME'}]})\""
+
+turn-on-db:
+  stage: turn-on
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - if ! [ -d $PROJECT_DIR/$CI_PROJECT_NAME ]; then
+    - cd $PROJECT_DIR
+    - git clone -b master --single-branch $CI_REPOSITORY_URL $CI_PROJECT_NAME
+    - else
+    - cd $PROJECT_DIR/$CI_PROJECT_NAME
+    - git pull $CI_REPOSITORY_URL master
+    - fi
+    - if ! docker ps --format '{{.Names}}' | grep -w $DB_CONTAINER_NAME &> /dev/null || ! docker ps --format '{{.Names}}' | grep -w $REDIS_CONTAINER_NAME &> /dev/null; then
+    - cd $PROJECT_DIR/$CI_PROJECT_NAME
+    - docker-compose -p amblema up -d
+    - fi
+create-testing-db:
+  stage: testing
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - docker exec -i $DB_CONTAINER_NAME bash -c "$CREATE_TESTING_MONGO_USER"
+
+create-qa-db:
+  stage: qa
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - docker exec -i $DB_CONTAINER_NAME bash -c "$CREATE_QA_MONGO_USER"
+    - docker exec -i $DB_CONTAINER_NAME bash -c "$CREATE_QA_SUPER_USER"
+drop-qa-db:
+  stage: qa
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - docker exec -i $DB_CONTAINER_NAME bash -c "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$QA_DB_NAME').dropDatabase()\""
+    - docker exec -i $DB_CONTAINER_NAME bash -c "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$QA_DB_NAME').dropUser('$MONGO_INITDB_ROOT_USERNAME')\""
+
+create-staging-db:
+  stage: staging
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - docker exec -i $DB_CONTAINER_NAME bash -c "$CREATE_STAGING_MONGO_USER"
+    - docker exec -i $DB_CONTAINER_NAME bash -c "$CREATE_STAGING_SUPER_USER"
+  
+drop-staging-db:
+  stage: staging
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - docker exec -i $DB_CONTAINER_NAME bash -c "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$STAGING_DB_NAME').dropDatabase()\""
+    - docker exec -i $DB_CONTAINER_NAME bash -c "mongo -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval \"db.getSiblingDB('$STAGING_DB_NAME').dropUser('$MONGO_INITDB_ROOT_USERNAME')\""
+
+turn-of-db:
+  stage: turn-off
+  tags:
+    - amblema-back
+  only:
+    refs:
+      - master
+  when: manual
+  script:
+    - if [ -d $PROJECT_DIR/$CI_PROJECT_NAME ]; then
+    - cd $PROJECT_DIR/$CI_PROJECT_NAME
+    - if docker ps --format '{{.Names}}' | grep -w $DB_CONTAINER_NAME &> /dev/null; then
+    - docker-compose -p amblema down
+    - fi
+    - fi
