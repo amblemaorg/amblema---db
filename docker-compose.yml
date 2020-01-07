@@ -24,12 +24,6 @@ services:
       ME_CONFIG_MONGODB_ADMINPASSWORD: $MONGO_INITDB_ROOT_PASSWORD
     networks:
       - db_network
-  redis:
-    image: redis:alpine
-    container_name: $REDIS_CONTAINER_NAME
-    restart: always
-    networks:
-      - db_network
 networks:
   db_network:
     driver: bridge
