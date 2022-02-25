@@ -1,5 +1,5 @@
 # AmbLeMa - DB
-Crear o modificar el archivo .env con la siguientes variables  
+**Crear o modificar el archivo .env con la siguientes variables**  
 MONGO_INITDB_ROOT_USERNAME=amblema  
 MONGO_INITDB_ROOT_PASSWORD=garden86  
 MONGO_INITDB_DATABASE=amblema  
