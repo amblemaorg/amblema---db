@@ -1,7 +1,7 @@
 version: '3'
 services:
   mongo:
-    image: mongo:latest
+    image: mongo:5.0.10
     container_name: $DB_CONTAINER_NAME
     restart: always
     environment:
@@ -14,7 +14,7 @@ services:
     networks:
       - db_network
   mongo-express:
-    image: mongo-express
+    image: mongo-express:0.54.0
     container_name: $MONGO_EXPRESS_CONTAINER_NAME
     restart: always
     ports:
